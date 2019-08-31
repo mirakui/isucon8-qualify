@@ -4,6 +4,7 @@ require 'erubi'
 require 'mysql2'
 require 'mysql2-cs-bind'
 require 'newrelic_rpm'
+require 'new_relic/agent/method_tracer'
 
 class Database < Mysql2::Client
   def initialize(*args)
@@ -11,7 +12,7 @@ class Database < Mysql2::Client
   end
 
   def query(sql, *args)
-    callback = Proc.new do |result, metrics, elapsed|
+    callback = -> (result, metrics, elapsed) do
       NewRelic::Agent::Datastores.notice_sql(sql, metrics, elapsed)
     end
     op = sql[/^(select|insert|update|delete)/i] || 'other'
@@ -477,4 +478,10 @@ module Torb
       render_report_csv(reports)
     end
   end
+end
+
+Torb::Web.class_eval do
+  include ::NewRelic::Agent::MethodTracer
+  add_method_tracer :get_event
+  add_method_tracer :get_events
 end
