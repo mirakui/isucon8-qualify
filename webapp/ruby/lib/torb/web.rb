@@ -14,7 +14,9 @@ class Database < Mysql2::Client
     callback = Proc.new do |result, metrics, elapsed|
       NewRelic::Agent::Datastores.notice_sql(sql, metrics, elapsed)
     end
-    NewRelic::Agent::Datastores.wrap("MySQL", "query", nil, callback) do
+    op = sql[/^(select|insert|update|delete)/i] || 'other'
+    table = sql[/\breservations|sheets|events\b/]
+    NewRelic::Agent::Datastores.wrap('MySQL', op, table, callback) do
       super
     end
   end
