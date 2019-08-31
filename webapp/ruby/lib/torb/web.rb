@@ -3,6 +3,22 @@ require 'sinatra/base'
 require 'erubi'
 require 'mysql2'
 require 'mysql2-cs-bind'
+require 'newrelic_rpm'
+
+class Database < Mysql2::Client
+  def initialize(*args)
+    super
+  end
+
+  def query(sql, *args)
+    callback = Proc.new do |result, metrics, elapsed|
+      NewRelic::Agent::Datastores.notice_sql(sql, metrics, elapsed)
+    end
+    NewRelic::Agent::Datastores.wrap("MySQL", "query", nil, callback) do
+      super
+    end
+  end
+end
 
 module Torb
   class Web < Sinatra::Base
@@ -40,7 +56,8 @@ module Torb
 
     helpers do
       def db
-        Thread.current[:db] ||= Mysql2::Client.new(
+        # Thread.current[:db] ||= Mysql2::Client.new(
+        Thread.current[:db] ||= Database.new(
           host: ENV['DB_HOST'],
           port: ENV['DB_PORT'],
           username: ENV['DB_USER'],
