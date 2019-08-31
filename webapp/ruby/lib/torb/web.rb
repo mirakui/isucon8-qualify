@@ -5,6 +5,7 @@ require 'mysql2'
 require 'mysql2-cs-bind'
 require 'newrelic_rpm'
 require 'new_relic/agent/method_tracer'
+require 'new_relic/agent/tracer'
 
 class Database < Mysql2::Client
   def initialize(*args)
@@ -185,6 +186,9 @@ module Torb
     end
 
     get '/' do
+      NewRelic::Agent::Tracer.in_transaction(category: 'External', partial_name: 'GET example.com') do
+        sleep 2
+      end
       @user   = get_login_user
       @events = get_events.map(&method(:sanitize_event))
       erb :index
